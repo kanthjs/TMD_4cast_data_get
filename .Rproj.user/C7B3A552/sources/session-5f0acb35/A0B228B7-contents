@@ -1,0 +1,82 @@
+# Required packages
+library(shiny)
+library(shinydashboard)
+library(leaflet)
+library(DT)
+
+# UI Definition
+ui <- dashboardPage(
+  dashboardHeader(title = "Weather Monitoring"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Weather Data", tabName = "weather", icon = icon("cloud")),
+      div(
+        class = "sidebar-menu", style = "padding: 10px;",
+        numericInput("longitude", "Longitude:", value = 100.10),
+        numericInput("latitude", "Latitude:", value = 13.10),
+        actionButton("set_default", "Set Default Location", class = "btn-primary btn-sm"),
+        actionButton("run", "Get Data and Run", class = "btn-primary btn-sm")
+      )
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      tabItem(
+        tabName = "weather",
+        fluidRow(
+          column(
+            6,
+            leafletOutput("map", height = 350)
+          ),
+          column(
+            6,
+            dataTableOutput("data_table", height = 350)
+          )
+        )
+      )
+    )
+  )
+)
+
+# Server Logic
+server <- function(input, output, session) {
+  # Default latitude and longitude
+  default_location <- reactiveValues(lat = 13.10, lon = 100.10)
+  
+  # Update numeric inputs to default values
+  observeEvent(input$set_default, {
+    updateNumericInput(session, "latitude", value = default_location$lat)
+    updateNumericInput(session, "longitude", value = default_location$lon)
+  })
+  
+  # Update numeric inputs when map is clicked
+  observeEvent(input$map_click, {
+    updateNumericInput(session, "latitude", value = input$map_click$lat)
+    updateNumericInput(session, "longitude", value = input$map_click$lng)
+  })
+  
+  # Render Leaflet map
+  output$map <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = input$longitude, lat = input$latitude, zoom = 10)
+  })
+  
+  # Update map when latitude or longitude changes
+  observe({
+    leafletProxy("map") %>%
+      setView(lng = input$longitude, lat = input$latitude, zoom = 10)
+  })
+  
+  # Render data table
+  output$data_table <- renderDataTable({
+    data.frame(
+      Latitude = input$latitude,
+      Longitude = input$longitude,
+      Date = Sys.Date()
+    )
+  })
+}
+
+# Run the Shiny App
+shinyApp(ui, server)
